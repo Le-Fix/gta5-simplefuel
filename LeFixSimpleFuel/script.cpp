@@ -10,6 +10,8 @@
 #include <string>
 #include <menu.h>
 
+#include <ctime> 
+
 NativeMenu::Menu menu;
 VehicleExtensions ext;
 
@@ -417,6 +419,8 @@ void onMenuExit() {
 
 void initialize()
 {
+	srand((unsigned)time(0));
+
 	//Paths
 	std::string path_settings_mod = GetCurrentModulePath() + "LeFixSimpleFuel\\settings_mod.ini";
 	std::string path_settings_menu = GetCurrentModulePath() + "LeFixSimpleFuel\\settings_menu.ini";
@@ -479,34 +483,57 @@ void update()
 	playerPed = PLAYER::PLAYER_PED_ID();
 
 	//Refresh vehicle reference and check if vehicle has changed
-	bool hasVehicleChanged = false;
-	Vehicle currentVeh = PED::GET_VEHICLE_PED_IS_USING(playerPed);
-	if (currentVeh != playerVeh)
+	if (playerVeh != PED::GET_VEHICLE_PED_IS_USING(playerPed))
 	{
-		hasVehicleChanged = true;
-		playerVeh = currentVeh;
-	}
+		playerVeh = PED::GET_VEHICLE_PED_IS_USING(playerPed);
 
-	// If has valid vehicle reference get tank Capacatiy
-	if (playerVeh == 0)
-	{
-		tankCapacity = -1.0f;
-		fuelBarLevel = -1.0f;
-	}
-	else
-	{
-		tankCapacity = ext.GetPetrolTankVolume(playerVeh);
+		// If has valid vehicle reference get tank Capacatiy
+		if (playerVeh == 0)
+		{
+			tankCapacity = -1.0f;
+			fuelBarLevel = -1.0f;
+		}
+		else
+		{
+			bool isRoadVehicle;
+			int vClass = VEHICLE::GET_VEHICLE_CLASS(playerVeh);
+			switch (vClass)
+			{
+			case eVehicleClass::VehicleClassCycles:
+			case eVehicleClass::VehicleClassBoats:
+			case eVehicleClass::VehicleClassHelicopters:
+			case eVehicleClass::VehicleClassPlanes:
+			case eVehicleClass::VehicleClassTrains:
+				isRoadVehicle = false; break;
+			default: isRoadVehicle = true; break;
+			}
+
+			tankCapacity = ext.GetPetrolTankVolume(playerVeh);
+			//Reference is valid but has vehicle a fuel tank?
+			if (!isRoadVehicle || tankCapacity <= 0.0f)
+			{
+				tankCapacity = -1.0f;
+				fuelBarLevel = -1.0f;
+			}
+			else
+			{
+				fuelBarLevel = ext.GetFuelLevel(playerVeh) / tankCapacity;
+				//Random fuel level
+				if (fuelBarLevel == 1.0f) fuelBarLevel = 0.333f + (rand() % 100)*0.666f*0.01f;
+			}
+		}
+
+		// Reset Display and Inputs
+		didRefuelInput = false;
+		showInputHelp = false;
+		removeNotification(handleNoteRefuel);
+		removeNotification(handleNoteEmpty);
 	}
 
 	//Valid fuel vehicle
 	if (tankCapacity > 0.0f)
 	{
 		float fuelLiter = ext.GetFuelLevel(playerVeh);
-
-		if (hasVehicleChanged)
-		{
-			fuelBarLevel = fuelLiter / tankCapacity;
-		}
 
 		//Prevent repair and refuel
 		if (!Settings::isRefuelingOnRepair && fuelLiter / tankCapacity > fuelBarLevel)
@@ -547,14 +574,12 @@ void update()
 			showInputHelp = false;
 			removeNotification(handleNoteRefuel);
 		}
+
+		//Draw Fuel Bar
+		if (Settings::isBarDisplayed && PLAYER::IS_PLAYER_CONTROL_ON(player)) drawFuelLevel(fuelBarLevel);
 	}
 	else
 	{
-		didRefuelInput = false;
-		showInputHelp = false;
-		removeNotification(handleNoteRefuel);
-		removeNotification(handleNoteEmpty);
-
 		//Check for refueling manually
 		if (showJerryHelp && CONTROLS::IS_CONTROL_PRESSED(2, Settings::refuelControlJerry))
 		{
@@ -562,10 +587,6 @@ void update()
 		}
 	}
 
-	if (Settings::isBarDisplayed && fuelBarLevel >= 0.0f && PLAYER::IS_PLAYER_CONTROL_ON(player)) // 0 = HUD
-	{
-		drawFuelLevel(fuelBarLevel);
-	}
 	if (showJerryHelp) showTextboxTop(noteJerryCan, true);
 	if (showInputHelp) showTextboxTop(noteRefuelInput, false);
 }
@@ -704,7 +725,7 @@ void updateMenu()
 	if (menu.CurrentMenu("mainmenu"))
 	{
 		menu.Title("Simple Fuel");
-		menu.Subtitle("v1.1 by LeFix");
+		menu.Subtitle("v1.1.1 by LeFix");
 		if (menu.BoolOption("Mod Enabled", Settings::isActive, { "Enable/Disable the entire mod." })) enableMod(Settings::isActive);
 		menu.FloatOption("Fuel Time", Settings::fuelTime, 0.1f, 20.0f, 0.1f, { "Time in minutes until tank capacity is consumed when consumption is at 100%. Visible at the bottom while menu is open." });
 		menu.MenuOption("Refueling", "refuelmenu");
