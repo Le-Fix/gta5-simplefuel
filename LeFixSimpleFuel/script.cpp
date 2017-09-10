@@ -725,7 +725,7 @@ void updateMenu()
 	if (menu.CurrentMenu("mainmenu"))
 	{
 		menu.Title("Simple Fuel");
-		menu.Subtitle("v1.1.2 pre by LeFix");
+		menu.Subtitle("v1.1.2");
 		if (menu.BoolOption("Mod Enabled", Settings::isActive, { "Enable/Disable the entire mod." })) enableMod(Settings::isActive);
 		menu.FloatOption("Fuel Time", Settings::fuelTime, 0.1f, 20.0f, 0.1f, { "Time in minutes until tank capacity is consumed when consumption is at 100%. Visible at the bottom while menu is open." });
 		menu.MenuOption("Refueling", "refuelmenu");

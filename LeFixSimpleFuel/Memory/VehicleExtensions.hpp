@@ -40,7 +40,7 @@ public:
 	uint16_t GetGearNext(Vehicle handle);
 	void SetGearNext(Vehicle handle, uint16_t value);
 	
-	uint32_t GetTopGear(Vehicle handle);
+	unsigned char GetTopGear(Vehicle handle);
 	// SetTopGear not logical
 	
 	float GetCurrentRPM(Vehicle handle);
